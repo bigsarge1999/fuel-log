@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Big Sarge Transportation - Dispatch & Profitability</title>
+    <!-- Tailwind CSS for a clean, modern, scannable dark-mode UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #121214; color: #e4e4e7; }
+    </style>
+</head>
+<body class="min-h-screen font-sans">
+
+    <!-- App Header -->
+    <header class="bg-zinc-900 border-b border-zinc-800 p-5 shadow-md">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-amber-500 tracking-wide uppercase">Big Sarge Transportation</h1>
+                <p class="text-sm text-zinc-400">Fleet Dispatch & OTR Profitability Console</p>
+            </div>
+            <div id="dbStatus" class="bg-zinc-800 px-4 py-2 rounded-lg text-xs text-zinc-300 font-mono border border-zinc-700">
+                Connected to Database
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left Side: Trip Intake Form -->
+        <section class="lg:col-span-1 bg-zinc-900 p-5 rounded-xl border border-zinc-800 shadow-sm space-y-4">
+            <h2 class="text-lg font-semibold text-zinc-200 border-b border-zinc-800 pb-2">Log New Trip</h2>
+            
+            <form id="dispatchForm" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Load / Pro Number</label>
+                    <input type="text" id="loadNumber" required class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white focus:outline-none focus:border-amber-500">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Origin</label>
+                        <input type="text" id="origin" required placeholder="City, ST" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white focus:outline-none focus:border-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Destination</label>
+                        <input type="text" id="destination" required placeholder="City, ST" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white focus:outline-none focus:border-amber-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Loaded Miles</label>
+                        <input type="number" id="loadedMiles" required min="0" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white focus:outline-none focus:border-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Deadhead Miles</label>
+                        <input type="number" id="deadheadMiles" required min="0" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white focus:outline-none focus:border-amber-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Gross Linehaul ($)</label>
+                        <input type="number" id="linehaul" required min="0" step="0.01" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white focus:outline-none focus:border-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Fuel Expenses ($)</label>
+                        <input type="number" id="fuelCost" required min="0" step="0.01" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white focus:outline-none focus:border-amber-500">
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold py-2.5 px-4 rounded transition duration-150 uppercase tracking-wide text-sm mt-2">
+                    Commit Trip to Database
+                </button>
+            </form>
+        </section>
+
+        <!-- Right Side: Analytics & Live Logs -->
+        <section class="lg:col-span-2 space-y-6">
+            
+            <!-- Quick Fleet Metrics Dashboard -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl shadow-sm">
+                    <p class="text-xs font-medium uppercase tracking-wider text-zinc-400">Total Operational Miles</p>
+                    <p id="metricTotalMiles" class="text-2xl font-bold text-white mt-1">0</p>
+                </div>
+                <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl shadow-sm">
+                    <p class="text-xs font-medium uppercase tracking-wider text-zinc-400">Net Profit (Post-Fuel)</p>
+                    <p id="metricNetProfit" class="text-2xl font-bold text-emerald-400 mt-1">$0.00</p>
+                </div>
+                <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl shadow-sm">
+                    <p class="text-xs font-medium uppercase tracking-wider text-zinc-400">Avg Revenue Per Mile</p>
+                    <p id="metricRPM" class="text-2xl font-bold text-amber-500 mt-1">$0.00</p>
+                </div>
+            </div>
+
+            <!-- Active Trip Logs -->
+            <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-sm">
+                <h2 class="text-lg font-semibold text-zinc-200 border-b border-zinc-800 pb-2 mb-4">Active Trip Log</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="border-b border-zinc-800 text-zinc-400 uppercase text-xs tracking-wider">
+                                <th class="pb-3 font-medium">Load #</th>
+                                <th class="pb-3 font-medium">Route</th>
+                                <th class="pb-3 font-medium text-right">Total Miles</th>
+                                <th class="pb-3 font-medium text-right">Gross Pay</th>
+                                <th class="pb-3 font-medium text-right">Net Yield</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tripTableBody" class="divide-y divide-zinc-800 text-zinc-300">
+                            <!-- Injected dynamically via script -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Core Database Communications Logic -->
+    <script>
+        // Pre-configured to point directly to your verified operating database URL
+        const firebaseDbUrl = "https://bigsarge-acb38-default-rtdb.firebaseio.com/";
+
+        document.getElementById('dbStatus').innerText = `DB: bigsarge-acb38`;
+
+        // Handle form submissions and sync to Firebase Realtime Database
+        document.getElementById('dispatchForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const loadNum = document.getElementById('loadNumber').value.trim();
+            const tripData = {
+                origin: document.getElementById('origin').value.trim(),
+                destination: document.getElementById('destination').value.trim(),
+                loadedMiles: parseInt(document.getElementById('loadedMiles').value) || 0,
+                deadheadMiles: parseInt(document.getElementById('deadheadMiles').value) || 0,
+                linehaul: parseFloat(document.getElementById('linehaul').value) || 0,
+                fuelCost: parseFloat(document.getElementById('fuelCost').value) || 0,
+                timestamp: Date.now()
+            };
+
+            try {
+                // Write directly to your database endpoint using a clean REST structure
+                const response = await fetch(`${firebaseDbUrl}trips/${loadNum}.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(tripData)
+                });
+
+                if (response.ok) {
+                    document.getElementById('dispatchForm').reset();
+                    fetchActiveTripLogs(); // Refresh dashboard visualization
+                } else {
+                    alert("Network response failed writing to database profile.");
+                }
+            } catch (err) {
+                console.error("Database connection error: ", err);
+                alert("Could not connect to Big Sarge Transportation database.");
+            }
+        });
+
+        // Pull active trip manifests and compute rolling fleet calculations
+        async function fetchActiveTripLogs() {
+            try {
+                const response = await fetch(`${firebaseDbUrl}trips.json`);
+                const data = await response.json();
+                
+                const tableBody = document.getElementById('tripTableBody');
+                tableBody.innerHTML = '';
+                
+                if (!data) {
+                    tableBody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-zinc-500 italic">No historical trip logs found in cloud cache.</td></tr>`;
+                    return;
+                }
+
+                let totalMilesSum = 0;
+                let netProfitSum = 0;
+                let grossRevenueSum = 0;
+
+                Object.keys(data).forEach(loadNum => {
+                    const trip = data[loadNum];
+                    const totalTripMiles = trip.loadedMiles + trip.deadheadMiles;
+                    const netYield = trip.linehaul - trip.fuelCost;
+
+                    totalMilesSum += totalTripMiles;
+                    netProfitSum += netYield;
+                    grossRevenueSum += trip.linehaul;
+
+                    const row = `
+                        <tr class="hover:bg-zinc-800/50 transition duration-100">
+                            <td class="py-3 font-semibold text-amber-500">${loadNum}</td>
+                            <td class="py-3">${trip.origin} ➔ ${trip.destination}</td>
+                            <td class="py-3 text-right font-mono">${totalTripMiles.toLocaleString()} mi</td>
+                            <td class="py-3 text-right text-emerald-400 font-mono">$${trip.linehaul.toFixed(2)}</td>
+                            <td class="py-3 text-right font-mono">$${netYield.toFixed(2)}</td>
+                        </tr>
+                    `;
+                    tableBody.insertAdjacentHTML('beforeend', row);
+                });
+
+                // Update analytical readout widgets
+                document.getElementById('metricTotalMiles').innerText = `${totalMilesSum.toLocaleString()} mi`;
+                document.getElementById('metricNetProfit').innerText = `$${netProfitSum.toFixed(2)}`;
+                document.getElementById('metricRPM').innerText = totalMilesSum > 0 
+                    ? `$${(grossRevenueSum / totalMilesSum).toFixed(2)}` 
+                    : '$0.00';
+
+            } catch (err) {
+                console.error("Data synchronization failed: ", err);
+            }
+        }
+
+        // Initialize active loadboard on layout draw
+        fetchActiveTripLogs();
+    </script>
+</body>
+</html>
