@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Big Sarge Transportation - Fuel Log & IFTA Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #121214; color: #e4e4e7; }
+    </style>
+</head>
+<body class="min-h-screen font-sans">
+
+    <!-- App Header -->
+    <header class="bg-zinc-900 border-b border-zinc-800 p-5 shadow-md">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-amber-500 tracking-wide uppercase">Big Sarge Transportation</h1>
+                <p class="text-sm text-zinc-400">Dedicated Fleet Fuel Log & IFTA Metrics</p>
+            </div>
+            <div id="dbStatus" class="bg-zinc-800 px-4 py-2 rounded-lg text-xs text-zinc-300 font-mono border border-zinc-700">
+                Fuel Database Active
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left Side: Fuel Log Intake Form -->
+        <section class="lg:col-span-1 bg-zinc-900 p-5 rounded-xl border border-zinc-800 shadow-sm space-y-4">
+            <h2 class="text-lg font-semibold text-zinc-200 border-b border-zinc-800 pb-2">Log Fuel Stop</h2>
+            
+            <form id="fuelForm" class="space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Date</label>
+                        <input type="date" id="fuelDate" required class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white focus:outline-none focus:border-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">State (IFTA)</label>
+                        <input type="text" id="state" placeholder="e.g. FL, GA" uppercase required maxlength="2" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white focus:outline-none focus:border-amber-500 uppercase">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Current Odometer</label>
+                    <input type="number" id="odometer" placeholder="Total truck miles" required min="0" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white focus:outline-none focus:border-amber-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Total Gallons</label>
+                        <input type="number" id="gallons" required min="0" step="0.001" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white focus:outline-none focus:border-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Total Cost ($)</label>
+                        <input type="number" id="totalCost" required min="0" step="0.01" class="w-full bg-zinc-800 border border-zinc-700 rounded p-2 text-white focus:outline-none focus:border-amber-500">
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold py-2.5 px-4 rounded transition duration-150 uppercase tracking-wide text-sm mt-2">
+                    Save Fuel Entry
+                </button>
+            </form>
+        </section>
+
+        <!-- Right Side: Analytics & Logs -->
+        <section class="lg:col-span-2 space-y-6">
+            
+            <!-- Fuel Metrics Dashboard -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl shadow-sm">
+                    <p class="text-xs font-medium uppercase tracking-wider text-zinc-400">Total Fuel Spend</p>
+                    <p id="metricTotalSpend" class="text-2xl font-bold text-white mt-1">$0.00</p>
+                </div>
+                <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl shadow-sm">
+                    <p class="text-xs font-medium uppercase tracking-wider text-zinc-400">Avg Price Per Gallon</p>
+                    <p id="metricAvgPPG" class="text-2xl font-bold text-amber-500 mt-1">$0.00</p>
+                </div>
+                <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl shadow-sm">
+                    <p class="text-xs font-medium uppercase tracking-wider text-zinc-400">Fleet Average MPG</p>
+                    <p id="metricAvgMPG" class="text-2xl font-bold text-emerald-400 mt-1">0.0</p>
+                </div>
+            </div>
+
+            <!-- Active Fuel Receipts -->
+            <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 shadow-sm">
+                <h2 class="text-lg font-semibold text-zinc-200 border-b border-zinc-800 pb-2 mb-4">Historical Fuel Log</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="border-b border-zinc-800 text-zinc-400 uppercase text-xs tracking-wider">
+                                <th class="pb-3 font-medium">Date</th>
+                                <th class="pb-3 font-medium">Loc</th>
+                                <th class="pb-3 font-medium text-right">Odometer</th>
+                                <th class="pb-3 font-medium text-right">Gallons</th>
+                                <th class="pb-3 font-medium text-right">Total Cost</th>
+                                <th class="pb-3 font-medium text-right">PPG</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fuelTableBody" class="divide-y divide-zinc-800 text-zinc-300">
+                            <!-- Injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const firebaseDbUrl = "https://bigsarge-acb38-default-rtdb.firebaseio.com/";
+
+        // Set default date picker to today
+        document.getElementById('fuelDate').valueAsDate = new Date();
+
+        document.getElementById('fuelForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const timestamp = Date.now();
+            const fuelData = {
+                date: document.getElementById('fuelDate').value,
+                state: document.getElementById('state').value.trim().toUpperCase(),
+                odometer: parseInt(document.getElementById('odometer').value) || 0,
+                gallons: parseFloat(document.getElementById('gallons').value) || 0,
+                totalCost: parseFloat(document.getElementById('totalCost').value) || 0,
+                timestamp: timestamp
+            };
+
+            try {
+                // Save under a unique timestamp key in a separate fuel tree
+                const response = await fetch(`${firebaseDbUrl}fuel_logs/${timestamp}.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(fuelData)
+                });
+
+                if (response.ok) {
+                    document.getElementById('fuelForm').reset();
+                    document.getElementById('fuelDate').valueAsDate = new Date();
+                    fetchFuelLogs();
+                } else {
+                    alert("Failed to write entry to Firebase cloud repository.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Connection lost to Big Sarge database.");
+            }
+        });
+
+        async function fetchFuelLogs() {
+            try {
+                const response = await fetch(`${firebaseDbUrl}fuel_logs.json`);
+                const data = await response.json();
+                
+                const tableBody = document.getElementById('fuelTableBody');
+                tableBody.innerHTML = '';
+                
+                if (!data) {
+                    tableBody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-zinc-500 italic">No fuel receipts logged.</td></tr>`;
+                    return;
+                }
+
+                // Sort logs chronologically by timestamp
+                const sortedKeys = Object.keys(data).sort((a,b) => data[b].timestamp - data[a].timestamp);
+
+                let totalSpend = 0;
+                let totalGallons = 0;
+                let odometers = [];
+
+                sortedKeys.forEach(key => {
+                    const entry = data[key];
+                    const ppg = entry.totalCost / entry.gallons;
+
+                    totalSpend += entry.totalCost;
+                    totalGallons += entry.gallons;
+                    odometers.push(entry.odometer);
+
+                    const row = `
+                        <tr class="hover:bg-zinc-800/50 transition duration-100">
+                            <td class="py-3 font-medium">${entry.date}</td>
+                            <td class="py-3"><span class="bg-zinc-800 text-amber-500 px-2 py-0.5 rounded text-xs font-bold font-mono">${entry.state}</span></td>
+                            <td class="py-3 text-right font-mono">${entry.odometer.toLocaleString()} mi</td>
+                            <td class="py-3 text-right font-mono">${entry.gallons.toFixed(2)}</td>
+                            <td class="py-3 text-right text-emerald-400 font-mono">$${entry.totalCost.toFixed(2)}</td>
+                            <td class="py-3 text-right text-zinc-400 font-mono">$${ppg.toFixed(3)}</td>
+                        </tr>
+                    `;
+                    tableBody.insertAdjacentHTML('beforeend', row);
+                });
+
+                // Calculate fleet MPG based on min and max odometer entries found
+                let calculatedMPG = 0;
+                if (odometers.length > 1) {
+                    const maxOdo = Math.max(...odometers);
+                    const minOdo = Math.min(...odometers);
+                    const totalMilesDriven = maxOdo - minOdo;
+                    if (totalGallons > 0 && totalMilesDriven > 0) {
+                        calculatedMPG = totalMilesDriven / totalGallons;
+                    }
+                }
+
+                // Push values to dashboard
+                document.getElementById('metricTotalSpend').innerText = `$${totalSpend.toFixed(2)}`;
+                document.getElementById('metricAvgPPG').innerText = totalGallons > 0 
+                    ? `$${(totalSpend / totalGallons).toFixed(3)}` 
+                    : '$0.00';
+                document.getElementById('metricAvgMPG').innerText = calculatedMPG > 0 
+                    ? `${calculatedMPG.toFixed(2)} MPG` 
+                    : '---';
+
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        fetchFuelLogs();
+    </script>
+</body>
+</html>
